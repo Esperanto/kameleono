@@ -23,6 +23,10 @@ CARDS_PER_PAGE = COLUMNS_PER_PAGE * LINES_PER_PAGE
 
 MARGIN = 15
 TITLE_SPACE = 20
+COORDS_HEIGHT = 10
+COORDS_WIDTH = 8
+WORDS_X = COORDS_WIDTH
+WORDS_Y = TITLE_SPACE + COORDS_HEIGHT
 TEXT_GAP = 5
 
 CARD_WIDTH = (PAGE_WIDTH - MARGIN * 2) / COLUMNS_PER_PAGE
@@ -30,8 +34,8 @@ CARD_HEIGHT = (PAGE_HEIGHT - MARGIN * 2) / LINES_PER_PAGE
 
 WORD_COLUMNS_PER_CARD = 4
 WORD_LINES_PER_CARD = 4
-WORD_BOX_WIDTH = CARD_WIDTH / WORD_COLUMNS_PER_CARD
-WORD_BOX_HEIGHT = (CARD_HEIGHT - TITLE_SPACE) / WORD_LINES_PER_CARD
+WORD_BOX_WIDTH = (CARD_WIDTH - WORDS_X) / WORD_COLUMNS_PER_CARD
+WORD_BOX_HEIGHT = (CARD_HEIGHT - WORDS_Y) / WORD_LINES_PER_CARD
 WORD_WIDTH = WORD_BOX_WIDTH - TEXT_GAP * 2
 
 CROSSHAIR_SIZE = 5
@@ -78,7 +82,7 @@ class CardGenerator:
         self.cr.restore()        
 
     def _render_word(self, text):
-        layout = self._get_paragraph_layout(text, "Noto Sans 9")
+        layout = self._get_paragraph_layout(text, "Noto Sans 7.5")
         layout.set_width(WORD_WIDTH * POINTS_PER_MM * Pango.SCALE)
         layout.set_alignment(Pango.Alignment.CENTER)
         (ink_rect, logical_rect) = layout.get_pixel_extents()
@@ -119,8 +123,8 @@ class CardGenerator:
 
         for y in range(WORD_LINES_PER_CARD):
             for x in range(WORD_COLUMNS_PER_CARD // 2):
-                self.cr.rectangle((x * 2 + (y & 1)) * WORD_BOX_WIDTH,
-                                  y * WORD_BOX_HEIGHT + TITLE_SPACE,
+                self.cr.rectangle((x * 2 + (y & 1)) * WORD_BOX_WIDTH + WORDS_X,
+                                  y * WORD_BOX_HEIGHT + WORDS_Y,
                                   WORD_BOX_WIDTH,
                                   WORD_BOX_HEIGHT)
 
@@ -129,6 +133,34 @@ class CardGenerator:
         self.cr.fill()
 
         self.cr.restore()
+
+    def _draw_coords(self):
+        self.cr.save()
+        self.cr.select_font_face("Noto Sans")
+        self.cr.set_font_size(COORDS_HEIGHT * 0.6)
+
+        for x in range(WORD_COLUMNS_PER_CARD):
+            letter = chr(ord("A") + x)
+            extents = self.cr.text_extents(letter)
+            self.cr.move_to(WORDS_X +
+                            x * WORD_BOX_WIDTH +
+                            WORD_BOX_WIDTH / 2 -
+                            extents.width / 2,
+                            TITLE_SPACE + COORDS_HEIGHT * 0.8)
+            self.cr.show_text(letter)
+
+        for y in range(WORD_LINES_PER_CARD):
+            digit = chr(ord("1") + y)
+            extents = self.cr.text_extents(digit)
+            self.cr.move_to(WORDS_X -
+                            COORDS_WIDTH / 2 -
+                            extents.width / 2,
+                            WORDS_Y +
+                            (y + 0.5) * WORD_BOX_HEIGHT +
+                            COORDS_HEIGHT * 0.25)
+            self.cr.show_text(digit)
+
+        self.cr.restore()            
 
     def flush_card(self):
         if self.topic is None or len(self.words) == 0:
@@ -155,13 +187,15 @@ class CardGenerator:
         self.cr.translate(column * CARD_WIDTH, 0.0)
 
         self._draw_grid()
+        self._draw_coords()
 
         self._render_title(self.topic)
 
         for i, word in enumerate(self.words):
             self.cr.save()
-            self.cr.translate(i % WORD_COLUMNS_PER_CARD * WORD_BOX_WIDTH,
-                              TITLE_SPACE +
+            self.cr.translate(WORDS_X +
+                              i % WORD_COLUMNS_PER_CARD * WORD_BOX_WIDTH,
+                              WORDS_Y +
                               i // WORD_COLUMNS_PER_CARD * WORD_BOX_HEIGHT)
             self._render_word(word)
             self.cr.restore()
