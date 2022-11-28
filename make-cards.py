@@ -128,15 +128,6 @@ class CardGenerator:
 
         self.cr.fill()
 
-        for x in range(WORD_COLUMNS_PER_CARD + 1):
-            self.cr.move_to(x * WORD_BOX_WIDTH, TITLE_SPACE)
-            self.cr.rel_line_to(0, WORD_BOX_HEIGHT * WORD_LINES_PER_CARD)
-        for y in range(WORD_LINES_PER_CARD + 1):
-            self.cr.move_to(0, TITLE_SPACE + y * WORD_BOX_HEIGHT)
-            self.cr.rel_line_to(WORD_BOX_WIDTH * WORD_COLUMNS_PER_CARD, 0)
-
-        self.cr.stroke()
-
         self.cr.restore()
 
     def flush_card(self):
