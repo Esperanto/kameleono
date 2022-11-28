@@ -114,6 +114,31 @@ class CardGenerator:
 
         self.cr.restore()
 
+    def _draw_grid(self):
+        self.cr.save()
+
+        for y in range(WORD_LINES_PER_CARD):
+            for x in range(WORD_COLUMNS_PER_CARD // 2):
+                self.cr.rectangle((x * 2 + (y & 1)) * WORD_BOX_WIDTH,
+                                  y * WORD_BOX_HEIGHT + TITLE_SPACE,
+                                  WORD_BOX_WIDTH,
+                                  WORD_BOX_HEIGHT)
+
+        self.cr.set_source_rgb(0.8, 0.8, 0.8)
+
+        self.cr.fill()
+
+        for x in range(WORD_COLUMNS_PER_CARD + 1):
+            self.cr.move_to(x * WORD_BOX_WIDTH, TITLE_SPACE)
+            self.cr.rel_line_to(0, WORD_BOX_HEIGHT * WORD_LINES_PER_CARD)
+        for y in range(WORD_LINES_PER_CARD + 1):
+            self.cr.move_to(0, TITLE_SPACE + y * WORD_BOX_HEIGHT)
+            self.cr.rel_line_to(WORD_BOX_WIDTH * WORD_COLUMNS_PER_CARD, 0)
+
+        self.cr.stroke()
+
+        self.cr.restore()
+
     def flush_card(self):
         if self.topic is None or len(self.words) == 0:
             return
@@ -138,14 +163,7 @@ class CardGenerator:
 
         self.cr.translate(column * CARD_WIDTH, 0.0)
 
-        for x in range(WORD_COLUMNS_PER_CARD + 1):
-            self.cr.move_to(x * WORD_BOX_WIDTH, TITLE_SPACE)
-            self.cr.rel_line_to(0, WORD_BOX_HEIGHT * WORD_LINES_PER_CARD)
-        for y in range(WORD_LINES_PER_CARD + 1):
-            self.cr.move_to(0, TITLE_SPACE + y * WORD_BOX_HEIGHT)
-            self.cr.rel_line_to(WORD_BOX_WIDTH * WORD_COLUMNS_PER_CARD, 0)
-
-        self.cr.stroke()
+        self._draw_grid()
 
         self._render_title(self.topic)
 
