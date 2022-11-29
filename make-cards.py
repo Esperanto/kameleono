@@ -43,13 +43,17 @@ CROSSHAIR_SIZE = 5
 class CardGenerator:
     def __init__(self, filename):
         self.surface = cairo.PDFSurface(filename,
-                                        PAGE_WIDTH * POINTS_PER_MM,
-                                        PAGE_HEIGHT * POINTS_PER_MM)
+                                        PAGE_HEIGHT * POINTS_PER_MM,
+                                        PAGE_WIDTH * POINTS_PER_MM)
 
         self.cr = cairo.Context(self.surface)
 
         # Use mm for the units from now on
         self.cr.scale(POINTS_PER_MM, POINTS_PER_MM)
+
+        # Rotate the page by 90°
+        self.cr.translate(PAGE_HEIGHT, 0.0)
+        self.cr.rotate(math.pi / 2.0)
 
         # Use ½mm line width
         self.cr.set_line_width(0.5)
