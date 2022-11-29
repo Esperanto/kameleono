@@ -10,6 +10,7 @@ from gi.repository import PangoCairo
 import cairo
 import re
 import sys
+import os
 import math
 import collections
 import random
@@ -58,7 +59,23 @@ DICE_SIZE = DECODER_LINE_SIZE - DECODER_GAP
 
 CROSSHATCH_GAP = CARD_HEIGHT / 25
 
+N_DECODER_CARDS = 7
+
 Card = collections.namedtuple('Card', ['topic', 'words'])
+Translation = collections.namedtuple('Translation',
+                                     ['filename',
+                                      'chameleon_card',
+                                      'backings',
+                                      'output'])
+
+TRANSLATIONS = [Translation("chameleon-word-list-eo.txt",
+                            "Vi estas la kameleono",
+                            ["BLUA", "VERDA"],
+                            "kameleono.pdf"),
+                Translation("chameleon-word-list-en.txt",
+                            "You are the chameleon",
+                            ["BLUE", "GREEN"],
+                            "chameleon.pdf")]
 
 class CardGenerator:
     def __init__(self, filename):
@@ -404,6 +421,20 @@ def read_cards(file):
     if len(words) > 0:
         yield Card(topic, words)
 
+def generate_word_cards(generator, cards):
+    # Split the last odd page into two so that when it is printed
+    # double-sided each card will have something on both sides
+    n_cards_in_pairs = (len(cards) //
+                        (CARDS_PER_PAGE * 2) *
+                        CARDS_PER_PAGE * 2)
+    split_point = (n_cards_in_pairs +
+                   (len(cards) - n_cards_in_pairs + 1) // 2)
+
+    for card_num, card in enumerate(cards):
+        if card_num == split_point:
+            generator.flush_page()
+        generator.add_card(card)
+
 def generate_decoder_card():
     value_indices = list(range(DECODER_COLUMNS * DECODER_LINES))
     random.shuffle(value_indices)
@@ -413,40 +444,35 @@ def generate_decoder_card():
                     WORD_LINES_PER_CARD)
                 for index in value_indices)
 
-cards = list(read_cards(sys.stdin))
+def generate_decoder_cards(generator, translation):
+    for backing in translation.backings:
+        decoder = generate_decoder_card()
 
-generator = CardGenerator("kameleono.pdf")
+        for i in range(N_DECODER_CARDS):
+            generator.add_decoder_card(decoder)
 
-# Split the last odd page into two so that when it is printed
-# double-sided each card will have something on both sides
-n_cards_in_pairs = (len(cards) //
-                    (CARDS_PER_PAGE * 2) *
-                    CARDS_PER_PAGE * 2)
-split_point = (n_cards_in_pairs +
-               (len(cards) - n_cards_in_pairs + 1) // 2)
+            if (i + 1) % CARDS_PER_PAGE == 0:
+                for _ in range(CARDS_PER_PAGE):
+                    generator.add_backing_card(backing)
 
-for card_num, card in enumerate(cards):
-    if card_num == split_point:
+        generator.add_chameleon_card(translation.chameleon_card)
         generator.flush_page()
-    generator.add_card(card)
 
-N_DECODER_CARDS = 7
+        for _ in range(N_DECODER_CARDS % CARDS_PER_PAGE + 1):
+            generator.add_backing_card(backing)
 
-generator.flush_page()
-for backing in "VERDA", "BLUA":
-    decoder = generate_decoder_card()
-    for j in range(N_DECODER_CARDS):
-        generator.add_decoder_card(decoder)
+        generator.flush_page()
 
-        if (j + 1) % CARDS_PER_PAGE == 0:
-            for k in range(CARDS_PER_PAGE):
-                generator.add_backing_card(backing)
+for translation in TRANSLATIONS:
+    input_filename = os.path.join(os.path.dirname(sys.argv[0]),
+                                  translation.filename)
+    with open(input_filename, "rt", encoding="UTF-8") as f:
+        cards = list(read_cards(f))
 
-    generator.add_chameleon_card("Vi estas la\n"
-                                 "kameleono")
-    generator.flush_page()
+    generator = CardGenerator(translation.output)
 
-    for k in range(N_DECODER_CARDS % CARDS_PER_PAGE + 1):
-        generator.add_backing_card(backing)
+    generate_word_cards(generator, cards)
 
     generator.flush_page()
+
+    generate_decoder_cards(generator, translation)
