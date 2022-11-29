@@ -56,9 +56,6 @@ class CardGenerator:
 
     def _get_paragraph_layout(self, text, font):
         layout = PangoCairo.create_layout(self.cr)
-        m = re.match(r'(.*?)([0-9]+(\.[0-9]*)?)$', font)
-        font_size = float(m.group(2))
-        font = m.group(1) + str(font_size)
         fd = Pango.FontDescription.from_string(font)
         layout.set_font_description(fd)
         layout.set_text(text, -1)
