@@ -322,12 +322,12 @@ class CardGenerator:
 
         self.card_num += 1
 
-    def add_chameleon_card(self):
+    def add_chameleon_card(self, text):
         self._start_card()
 
-        layout = self._get_paragraph_layout("Vi estas la\n"
-                                            "kameleono",
+        layout = self._get_paragraph_layout(text,
                                             "Noto Sans " + str(CARD_HEIGHT / 5))
+        layout.set_width((CARD_WIDTH - DECODER_GAP * 2) * Pango.SCALE)
         layout.set_alignment(Pango.Alignment.CENTER)
         (ink_rect, logical_rect) = layout.get_pixel_extents()
         self.cr.move_to(CARD_WIDTH / 2 - logical_rect.width / 2,
@@ -442,7 +442,8 @@ for backing in "VERDA", "BLUA":
             for k in range(CARDS_PER_PAGE):
                 generator.add_backing_card(backing)
 
-    generator.add_chameleon_card()
+    generator.add_chameleon_card("Vi estas la\n"
+                                 "kameleono")
     generator.flush_page()
 
     for k in range(N_DECODER_CARDS % CARDS_PER_PAGE + 1):
