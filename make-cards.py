@@ -51,10 +51,6 @@ class CardGenerator:
         # Use mm for the units from now on
         self.cr.scale(POINTS_PER_MM, POINTS_PER_MM)
 
-        # Rotate the page by 90°
-        self.cr.translate(PAGE_HEIGHT, 0.0)
-        self.cr.rotate(math.pi / 2.0)
-
         # Use ½mm line width
         self.cr.set_line_width(0.5)
 
@@ -173,10 +169,25 @@ class CardGenerator:
             return
         
         card_in_page = self.card_num % CARDS_PER_PAGE
+        page_num = self.card_num // CARDS_PER_PAGE
+        column = self.card_num % COLUMNS_PER_PAGE
 
         if card_in_page == 0:
             if self.card_num != 0:
+                # Remove the page rotation
+                self.cr.restore()
                 self.cr.show_page()
+
+            self.cr.save()
+
+            # Rotate the page by 90°, either clockwise or
+            # anti-clockwise depending on the page parity
+            if page_num & 1 == 0:
+                self.cr.translate(PAGE_HEIGHT, 0.0)
+                self.cr.rotate(math.pi / 2.0)
+            else:
+                self.cr.translate(0, PAGE_WIDTH)
+                self.cr.rotate(-math.pi / 2.0)
 
             self._draw_crosshairs()
 
@@ -186,9 +197,6 @@ class CardGenerator:
                           COLUMNS_PER_PAGE *
                           CARD_HEIGHT +
                           MARGIN)
-
-        page_num = self.card_num // CARDS_PER_PAGE
-        column = self.card_num % COLUMNS_PER_PAGE
 
         self.cr.translate(column * CARD_WIDTH, 0.0)
 
