@@ -15,20 +15,20 @@ import collections
 
 POINTS_PER_MM = 2.8346457
 
-PAGE_WIDTH = 297
-PAGE_HEIGHT = 210
+PAGE_WIDTH = 297 * POINTS_PER_MM
+PAGE_HEIGHT = 210 * POINTS_PER_MM
 
 COLUMNS_PER_PAGE = 2
 LINES_PER_PAGE = 2
 CARDS_PER_PAGE = COLUMNS_PER_PAGE * LINES_PER_PAGE
 
-MARGIN = 15
-TITLE_SPACE = 20
-COORDS_HEIGHT = 10
-COORDS_WIDTH = 8
+MARGIN = 15 * POINTS_PER_MM
+TITLE_SPACE = 20 * POINTS_PER_MM
+COORDS_HEIGHT = 10 * POINTS_PER_MM
+COORDS_WIDTH = 8 * POINTS_PER_MM
 WORDS_X = COORDS_WIDTH
 WORDS_Y = TITLE_SPACE + COORDS_HEIGHT
-TEXT_GAP = 5
+TEXT_GAP = 5 * POINTS_PER_MM
 
 CARD_WIDTH = (PAGE_WIDTH - MARGIN * 2) / COLUMNS_PER_PAGE
 CARD_HEIGHT = (PAGE_HEIGHT - MARGIN * 2) / LINES_PER_PAGE
@@ -39,23 +39,18 @@ WORD_BOX_WIDTH = (CARD_WIDTH - WORDS_X) / WORD_COLUMNS_PER_CARD
 WORD_BOX_HEIGHT = (CARD_HEIGHT - WORDS_Y) / WORD_LINES_PER_CARD
 WORD_WIDTH = WORD_BOX_WIDTH - TEXT_GAP * 2
 
-CROSSHAIR_SIZE = 5
+CROSSHAIR_SIZE = 5 * POINTS_PER_MM
 
 Card = collections.namedtuple('Card', ['topic', 'words'])
 
 class CardGenerator:
     def __init__(self, filename):
-        self.surface = cairo.PDFSurface(filename,
-                                        PAGE_HEIGHT * POINTS_PER_MM,
-                                        PAGE_WIDTH * POINTS_PER_MM)
+        self.surface = cairo.PDFSurface(filename, PAGE_HEIGHT, PAGE_WIDTH)
 
         self.cr = cairo.Context(self.surface)
 
-        # Use mm for the units from now on
-        self.cr.scale(POINTS_PER_MM, POINTS_PER_MM)
-
         # Use ½mm line width
-        self.cr.set_line_width(0.5)
+        self.cr.set_line_width(0.5 * POINTS_PER_MM)
 
         self.card_num = 0
 
@@ -84,22 +79,15 @@ class CardGenerator:
 
     def _render_word(self, text):
         layout = self._get_paragraph_layout(text, "Noto Sans 7.5")
-        layout.set_width(WORD_WIDTH * POINTS_PER_MM * Pango.SCALE)
+        layout.set_width(WORD_WIDTH * Pango.SCALE)
         layout.set_alignment(Pango.Alignment.CENTER)
         (ink_rect, logical_rect) = layout.get_pixel_extents()
 
-        self.cr.save()
-
-        # Remove the mm scale
-        self.cr.scale(1.0 / POINTS_PER_MM, 1.0 / POINTS_PER_MM)
-
-        self.cr.move_to(TEXT_GAP * POINTS_PER_MM,
-                        WORD_BOX_HEIGHT / 2 * POINTS_PER_MM -
+        self.cr.move_to(TEXT_GAP,
+                        WORD_BOX_HEIGHT / 2 -
                         logical_rect.height / 2)
 
         PangoCairo.show_layout(self.cr, layout)
-
-        self.cr.restore()
 
     def _draw_crosshairs(self):
         self.cr.save()
