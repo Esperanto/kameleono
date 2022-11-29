@@ -109,10 +109,19 @@ class CardGenerator:
         self.cr.restore()        
 
     def _render_word(self, text):
-        layout = self._get_paragraph_layout(text, "Noto Sans 8")
-        layout.set_width(WORD_WIDTH * Pango.SCALE)
-        layout.set_alignment(Pango.Alignment.CENTER)
-        (ink_rect, logical_rect) = layout.get_pixel_extents()
+        font_size = 8
+
+        while True:
+            layout = self._get_paragraph_layout(text,
+                                                "Noto Sans " + str(font_size))
+            layout.set_width(WORD_WIDTH * Pango.SCALE)
+            layout.set_alignment(Pango.Alignment.CENTER)
+            (ink_rect, logical_rect) = layout.get_pixel_extents()
+
+            if logical_rect.height <= WORD_BOX_HEIGHT:
+                break
+
+            font_size *= 0.8
 
         self.cr.move_to(TEXT_GAP,
                         WORD_BOX_HEIGHT / 2 -
