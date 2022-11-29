@@ -11,6 +11,7 @@ import cairo
 import re
 import sys
 import math
+import collections
 
 POINTS_PER_MM = 2.8346457
 
@@ -40,6 +41,8 @@ WORD_WIDTH = WORD_BOX_WIDTH - TEXT_GAP * 2
 
 CROSSHAIR_SIZE = 5
 
+Card = collections.namedtuple('Card', ['topic', 'words'])
+
 class CardGenerator:
     def __init__(self, filename):
         self.surface = cairo.PDFSurface(filename,
@@ -55,8 +58,6 @@ class CardGenerator:
         self.cr.set_line_width(0.5)
 
         self.card_num = 0
-        self.topic = None
-        self.words = []
 
     def _get_paragraph_layout(self, text, font):
         layout = PangoCairo.create_layout(self.cr)
@@ -164,10 +165,7 @@ class CardGenerator:
 
         self.cr.restore()            
 
-    def flush_card(self):
-        if self.topic is None or len(self.words) == 0:
-            return
-        
+    def add_card(self, card):
         card_in_page = self.card_num % CARDS_PER_PAGE
         page_num = self.card_num // CARDS_PER_PAGE
         column = self.card_num % COLUMNS_PER_PAGE
@@ -203,9 +201,9 @@ class CardGenerator:
         self._draw_grid()
         self._draw_coords()
 
-        self._render_title(self.topic)
+        self._render_title(card.topic)
 
-        for i, word in enumerate(self.words):
+        for i, word in enumerate(card.words):
             self.cr.save()
             self.cr.translate(WORDS_X +
                               i % WORD_COLUMNS_PER_CARD * WORD_BOX_WIDTH,
@@ -216,27 +214,35 @@ class CardGenerator:
 
         self.cr.restore()
 
-        self.topic = None
-        self.words.clear()
         self.card_num += 1
 
-    def add_line(self, line):
+def read_cards(file):
+    topic = None
+    words = []
+
+    for line in file:
+        line = line.strip()
+
+        if line.startswith('#'):
+            continue
+
         if len(line) == 0:
-            if len(self.words) > 0:
-                self.flush_card()
-            return
+            if len(words) > 0:
+                yield Card(topic, list(words))
+                words.clear()
+                topic = None
+            continue
 
-        if self.topic is None:
-            self.topic = line
-            return
+        if topic is None:
+            topic = line
+            continue
 
-        self.words.append(line)
+        words.append(line)
+
+    if len(words) > 0:
+        yield Card(topic, words)
 
 generator = CardGenerator("kameleono.pdf")
 
-for line in sys.stdin:
-    if line.startswith('#'):
-        continue
-    generator.add_line(line.strip())
-
-generator.flush_card()
+for card in read_cards(sys.stdin):
+    generator.add_card(card)
