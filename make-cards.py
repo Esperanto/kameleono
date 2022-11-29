@@ -168,7 +168,6 @@ class CardGenerator:
     def add_card(self, card):
         card_in_page = self.card_num % CARDS_PER_PAGE
         page_num = self.card_num // CARDS_PER_PAGE
-        column = self.card_num % COLUMNS_PER_PAGE
 
         if card_in_page == 0:
             if self.card_num != 0:
@@ -189,14 +188,15 @@ class CardGenerator:
 
             self._draw_crosshairs()
 
-        self.cr.save()
-        self.cr.translate(MARGIN,
-                          card_in_page //
-                          COLUMNS_PER_PAGE *
-                          CARD_HEIGHT +
-                          MARGIN)
+        card_x = card_in_page % COLUMNS_PER_PAGE
+        card_y = card_in_page // COLUMNS_PER_PAGE
 
-        self.cr.translate(column * CARD_WIDTH, 0.0)
+        if page_num & 1 != 0:
+            card_x = COLUMNS_PER_PAGE - 1 - card_x
+
+        self.cr.save()
+        self.cr.translate(card_x * CARD_WIDTH + MARGIN,
+                          card_y * CARD_HEIGHT + MARGIN)
 
         self._draw_grid()
         self._draw_coords()
@@ -215,6 +215,12 @@ class CardGenerator:
         self.cr.restore()
 
         self.card_num += 1
+
+    def flush_page(self):
+        card_in_page = self.card_num % CARDS_PER_PAGE
+
+        if card_in_page > 0:
+            self.card_num += CARDS_PER_PAGE - card_in_page
 
 def read_cards(file):
     topic = None
@@ -242,7 +248,19 @@ def read_cards(file):
     if len(words) > 0:
         yield Card(topic, words)
 
+cards = list(read_cards(sys.stdin))
+
 generator = CardGenerator("kameleono.pdf")
 
-for card in read_cards(sys.stdin):
+# Split the last odd page into two so that when it is printed
+# double-sided each card will have something on both sides
+n_cards_in_pairs = (len(cards) //
+                    (CARDS_PER_PAGE * 2) *
+                    CARDS_PER_PAGE * 2)
+split_point = (n_cards_in_pairs +
+               (len(cards) - n_cards_in_pairs + 1) // 2)
+
+for card_num, card in enumerate(cards):
+    if card_num == split_point:
+        generator.flush_page()
     generator.add_card(card)
