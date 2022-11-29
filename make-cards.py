@@ -12,6 +12,7 @@ import re
 import sys
 import math
 import collections
+import random
 
 POINTS_PER_MM = 2.8346457
 
@@ -39,7 +40,23 @@ WORD_BOX_WIDTH = (CARD_WIDTH - WORDS_X) / WORD_COLUMNS_PER_CARD
 WORD_BOX_HEIGHT = (CARD_HEIGHT - WORDS_Y) / WORD_LINES_PER_CARD
 WORD_WIDTH = WORD_BOX_WIDTH - TEXT_GAP * 2
 
+DECODER_COLUMNS = 6
+DECODER_LINES = 8
+
 CROSSHAIR_SIZE = 5 * POINTS_PER_MM
+
+DICE_DOTS = [1 << 4,
+             (1 << 2) | (1 << 6),
+             (1 << 2) | (1 << 4) | (1 << 6),
+             5 | (5 << 6),
+             5 | (1 << 4) | (5 << 6),
+             7 | (7 << 6)]
+
+DECODER_GAP = 2 * POINTS_PER_MM
+DECODER_LINE_SIZE = (CARD_HEIGHT - DECODER_GAP) / (DECODER_LINES + 1)
+DICE_SIZE = DECODER_LINE_SIZE - DECODER_GAP
+
+CROSSHATCH_GAP = CARD_HEIGHT / 25
 
 Card = collections.namedtuple('Card', ['topic', 'words'])
 
@@ -148,9 +165,9 @@ class CardGenerator:
                             COORDS_HEIGHT * 0.25)
             self.cr.show_text(digit)
 
-        self.cr.restore()            
+        self.cr.restore()
 
-    def add_card(self, card):
+    def _start_card(self):
         card_in_page = self.card_num % CARDS_PER_PAGE
         page_num = self.card_num // CARDS_PER_PAGE
 
@@ -180,9 +197,12 @@ class CardGenerator:
             card_x = COLUMNS_PER_PAGE - 1 - card_x
 
         self.cr.save()
+
         self.cr.translate(card_x * CARD_WIDTH + MARGIN,
                           card_y * CARD_HEIGHT + MARGIN)
 
+    def add_card(self, card):
+        self._start_card()
         self._draw_grid()
         self._draw_coords()
 
@@ -196,6 +216,157 @@ class CardGenerator:
                               i // WORD_COLUMNS_PER_CARD * WORD_BOX_HEIGHT)
             self._render_word(word)
             self.cr.restore()
+
+        self.cr.restore()
+
+        self.card_num += 1
+
+    def _draw_die_outline(self, x, y):
+        curve_size = DICE_SIZE / 10.0
+        self.cr.move_to(x + curve_size, y)
+        self.cr.rel_line_to(DICE_SIZE - curve_size * 2, 0)
+        self.cr.arc(x + DICE_SIZE - curve_size,
+                    y + curve_size,
+                    curve_size,
+                    math.pi * 1.5,
+                    math.pi * 2.0)
+        self.cr.rel_line_to(0, DICE_SIZE - curve_size * 2)
+        self.cr.arc(x + DICE_SIZE - curve_size,
+                    y + DICE_SIZE - curve_size,
+                    curve_size,
+                    0.0,
+                    math.pi * 0.5)
+        self.cr.rel_line_to(curve_size * 2 - DICE_SIZE, 0)
+        self.cr.arc(x + curve_size,
+                    y + DICE_SIZE - curve_size,
+                    curve_size,
+                    math.pi * 0.5,
+                    math.pi)
+        self.cr.rel_line_to(0, curve_size * 2 - DICE_SIZE)
+        self.cr.arc(x + curve_size,
+                    y + curve_size,
+                    curve_size,
+                    math.pi,
+                    math.pi * 1.5)
+        self.cr.stroke()
+
+    def _draw_die_dots(self, x, y, value):
+        dots = DICE_DOTS[value]
+
+        for dx in range(3):
+            for dy in range(3):
+                bit = (dots & 1) != 0
+                dots >>= 1
+
+                if not bit:
+                    continue
+
+                self.cr.arc(x + (dx + 1) * (DICE_SIZE / 4),
+                            y + (dy + 1) * (DICE_SIZE / 4),
+                            DICE_SIZE / 11,
+                            0.0,
+                            math.pi * 2)
+                self.cr.fill()
+
+    def _draw_die(self, x, y, value):
+        self._draw_die_outline(x, y)
+        self._draw_die_dots(x, y, value)
+
+    def _draw_d8(self, x, y, value):
+        self.cr.move_to(x + DICE_SIZE / 2, y)
+        self.cr.line_to(x + DICE_SIZE, y + DICE_SIZE * 3 / 4)
+        self.cr.line_to(x + DICE_SIZE / 2, y + DICE_SIZE)
+        self.cr.line_to(x, y + DICE_SIZE * 3 / 4)
+        self.cr.close_path()
+        self.cr.move_to(x, y + DICE_SIZE * 3 / 4)
+        self.cr.rel_line_to(DICE_SIZE, 0)
+        self.cr.stroke()
+
+        self.cr.save()
+        self.cr.set_font_size(DICE_SIZE / 1.8)
+        self.cr.select_font_face("Noto Sans")
+
+        digit = chr(ord("1") + value)
+        extents = self.cr.text_extents(digit)
+        self.cr.move_to(x + DICE_SIZE / 2 - extents.width / 2,
+                        y + DICE_SIZE / 1.5)
+        self.cr.show_text(digit)
+
+        self.cr.restore()
+
+    def add_decoder_card(self, decoder):
+        self._start_card()
+
+        for x in range(DECODER_COLUMNS):
+            dice_left = x * (CARD_WIDTH / DECODER_COLUMNS) + DECODER_GAP
+            self._draw_die(dice_left, DECODER_GAP, x)
+
+            for y in range(DECODER_LINES):
+                dice_top = DECODER_GAP + (y + 1) * DECODER_LINE_SIZE
+                self._draw_d8(dice_left, dice_top, y)
+
+                self.cr.save()
+                self.cr.set_font_size(DICE_SIZE / 1.5)
+                self.cr.select_font_face("Noto Sans")
+
+                coords = decoder[x * DECODER_LINES + y]
+
+                extents = self.cr.text_extents(coords)
+                self.cr.move_to(dice_left + DECODER_GAP + DICE_SIZE,
+                                dice_top + DICE_SIZE / 1.5)
+                self.cr.show_text(coords)
+
+                self.cr.restore()
+
+        self.cr.restore()
+
+        self.card_num += 1
+
+    def add_chameleon_card(self):
+        self._start_card()
+
+        layout = self._get_paragraph_layout("Vi estas la\n"
+                                            "kameleono",
+                                            "Noto Sans " + str(CARD_HEIGHT / 5))
+        layout.set_alignment(Pango.Alignment.CENTER)
+        (ink_rect, logical_rect) = layout.get_pixel_extents()
+        self.cr.move_to(CARD_WIDTH / 2 - logical_rect.width / 2,
+                        CARD_HEIGHT / 2 - logical_rect.height / 2)
+        PangoCairo.show_layout(self.cr, layout)
+
+        self.cr.restore()
+
+        self.card_num += 1
+
+    def _draw_crosshatch(self):
+        self.cr.save()
+        self.cr.rectangle(0, 0, CARD_WIDTH, CARD_HEIGHT)
+        self.cr.clip()
+
+        max_axis = max(CARD_WIDTH, CARD_HEIGHT)
+
+        for i in range(math.ceil(max_axis * 2 / CROSSHATCH_GAP)):
+            self.cr.move_to(i * CROSSHATCH_GAP - CARD_WIDTH, 0)
+            self.cr.rel_line_to(max_axis, max_axis)
+            self.cr.move_to(i * CROSSHATCH_GAP, 0)
+            self.cr.rel_line_to(-max_axis, max_axis)
+
+        self.cr.stroke()
+
+        self.cr.restore()
+
+    def add_backing_card(self, text):
+        self._start_card()
+
+        self._draw_crosshatch()
+
+        self.cr.select_font_face("Noto Sans")
+        self.cr.set_font_size(CARD_HEIGHT / 3)
+        extents = self.cr.text_extents(text)
+        self.cr.move_to(CARD_WIDTH / 2 - extents.width / 2,
+                        CARD_HEIGHT / 2 + CARD_HEIGHT / 6)
+        self.cr.set_source_rgb(0.7, 0.7, 0.7)
+        self.cr.show_text(text)
 
         self.cr.restore()
 
@@ -233,6 +404,15 @@ def read_cards(file):
     if len(words) > 0:
         yield Card(topic, words)
 
+def generate_decoder_card():
+    value_indices = list(range(DECODER_COLUMNS * DECODER_LINES))
+    random.shuffle(value_indices)
+    return list(chr(ord("A") + index % WORD_COLUMNS_PER_CARD) +
+                chr(ord("1") +
+                    index // WORD_COLUMNS_PER_CARD %
+                    WORD_LINES_PER_CARD)
+                for index in value_indices)
+
 cards = list(read_cards(sys.stdin))
 
 generator = CardGenerator("kameleono.pdf")
@@ -249,3 +429,23 @@ for card_num, card in enumerate(cards):
     if card_num == split_point:
         generator.flush_page()
     generator.add_card(card)
+
+N_DECODER_CARDS = 7
+
+generator.flush_page()
+for backing in "VERDA", "BLUA":
+    decoder = generate_decoder_card()
+    for j in range(N_DECODER_CARDS):
+        generator.add_decoder_card(decoder)
+
+        if (j + 1) % CARDS_PER_PAGE == 0:
+            for k in range(CARDS_PER_PAGE):
+                generator.add_backing_card(backing)
+
+    generator.add_chameleon_card()
+    generator.flush_page()
+
+    for k in range(N_DECODER_CARDS % CARDS_PER_PAGE + 1):
+        generator.add_backing_card(backing)
+
+    generator.flush_page()
