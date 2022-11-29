@@ -111,8 +111,10 @@ class CardGenerator:
 
         for y in range(0, LINES_PER_PAGE + 1):
             for x in range(0, COLUMNS_PER_PAGE + 1):
-                self.cr.move_to(CARD_WIDTH * x,
-                                CARD_HEIGHT * y - CROSSHAIR_SIZE / 2.0)
+                self.cr.move_to(CARD_WIDTH * x + MARGIN,
+                                CARD_HEIGHT * y -
+                                CROSSHAIR_SIZE / 2.0 +
+                                MARGIN)
                 self.cr.rel_line_to(0, CROSSHAIR_SIZE)
                 self.cr.rel_move_to(CROSSHAIR_SIZE / 2.0,
                                     -CROSSHAIR_SIZE / 2.0)
@@ -172,18 +174,18 @@ class CardGenerator:
         
         card_in_page = self.card_num % CARDS_PER_PAGE
 
+        if card_in_page == 0:
+            if self.card_num != 0:
+                self.cr.show_page()
+
+            self._draw_crosshairs()
+
         self.cr.save()
         self.cr.translate(MARGIN,
                           card_in_page //
                           COLUMNS_PER_PAGE *
                           CARD_HEIGHT +
                           MARGIN)
-
-        if card_in_page == 0:
-            if self.card_num != 0:
-                self.cr.show_page()
-
-            self._draw_crosshairs()
 
         page_num = self.card_num // CARDS_PER_PAGE
         column = self.card_num % COLUMNS_PER_PAGE
